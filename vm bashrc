@@ -1,0 +1,10 @@
+if [[ $(tty) = "/dev/ttyS0" || $(tty) = "/dev/hvc0" ]]
+then
+	stty rows 45 cols 190
+fi
+
+# . /usr/share/fzf/shell/key-bindings.bash
+PS1='\u@fedora-L1:\w\$ '
+
+shopt -s histappend
+PROMPT_COMMAND="history -a;$PROMPT_COMMAND"
