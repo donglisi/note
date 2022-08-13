@@ -1,0 +1,10 @@
+[global]
+  public = yes
+  browseable = yes
+  writable = yes
+  force user = d
+  security = user
+  map to guest = Bad Password
+
+[c]
+  path = /c
