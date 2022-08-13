@@ -1,0 +1,14 @@
+lxc.include = /usr/share/lxc/config/common.conf
+lxc.arch = x86_64
+
+lxc.rootfs.path = dir:/b/container/gateway
+lxc.uts.name = gateway
+
+lxc.net.0.type = veth
+lxc.net.0.link = eth-br
+lxc.net.0.flags = up
+lxc.net.0.hwaddr = 52:54:xx:xx:xx:xx
+lxc.net.0.ipv4.address = 192.168.1.253/24
+lxc.net.0.ipv4.gateway = 192.168.1.1
+
+lxc.mount.entry = /c c none bind,create=dir 0.0
