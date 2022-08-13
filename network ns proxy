@@ -1,0 +1,12 @@
+ip netns add proxy
+ip link add veth0 type veth peer name veth1 netns proxy
+ip netns exec proxy ip link set lo up
+ip netns exec proxy ip link set veth1 up
+ip netns exec proxy ip addr add 192.168.1.253/24 dev veth1
+ip netns exec proxy ip route add default via 192.168.1.254
+ip netns exec proxy ip link set veth1 up
+ip link set veth0 master eth-br
+ip link set veth0 up
+
+mkdir -p /etc/netns/proxy/
+echo nameserver 192.168.1.254 > /etc/netns/proxy/resolv.conf
