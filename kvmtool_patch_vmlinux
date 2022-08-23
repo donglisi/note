@@ -1,0 +1,147 @@
+diff --git a/include/kvm/kvm-config.h b/include/kvm/kvm-config.h
+index 368e6c7..c9507f7 100644
+--- a/include/kvm/kvm-config.h
++++ b/include/kvm/kvm-config.h
+@@ -19,6 +19,8 @@
+ 
+ #define MIN_RAM_SIZE		SZ_64M
+ 
++extern bool load_vmlinux;
++
+ struct kvm_config {
+ 	struct kvm_config_arch arch;
+ 	struct disk_image_params disk_image[MAX_DISK_IMAGES];
+diff --git a/x86/kvm-cpu.c b/x86/kvm-cpu.c
+index b02ff65..ffd3709 100644
+--- a/x86/kvm-cpu.c
++++ b/x86/kvm-cpu.c
+@@ -193,17 +193,24 @@ static void kvm_cpu__setup_fpu(struct kvm_cpu *vcpu)
+ 
+ static void kvm_cpu__setup_regs(struct kvm_cpu *vcpu)
+ {
+-	vcpu->regs = (struct kvm_regs) {
+-		/* We start the guest in 16-bit real mode  */
+-		.rflags	= 0x0000000000000002ULL,
+-
+-		.rip	= vcpu->kvm->arch.boot_ip,
+-		.rsp	= vcpu->kvm->arch.boot_sp,
+-		.rbp	= vcpu->kvm->arch.boot_sp,
+-	};
+-
+-	if (vcpu->regs.rip > USHRT_MAX)
+-		die("ip 0x%llx is too high for real mode", (u64)vcpu->regs.rip);
++	if(load_vmlinux) {
++		vcpu->regs = (struct kvm_regs) {
++			.rip	= 0x0000000000200000ULL,
++			.rsi 	= 0x0000000000014760ULL,
++		};
++	} else {
++		vcpu->regs = (struct kvm_regs) {
++			/* We start the guest in 16-bit real mode  */
++			.rflags	= 0x0000000000000002ULL,
++
++			.rip	= vcpu->kvm->arch.boot_ip,
++			.rsp	= vcpu->kvm->arch.boot_sp,
++			.rbp	= vcpu->kvm->arch.boot_sp,
++		};
++
++		if (vcpu->regs.rip > USHRT_MAX)
++			die("ip 0x%llx is too high for real mode", (u64)vcpu->regs.rip);
++	}
+ 
+ 	if (ioctl(vcpu->vcpu_fd, KVM_SET_REGS, &vcpu->regs) < 0)
+ 		die_perror("KVM_SET_REGS failed");
+@@ -214,18 +221,26 @@ static void kvm_cpu__setup_sregs(struct kvm_cpu *vcpu)
+ 	if (ioctl(vcpu->vcpu_fd, KVM_GET_SREGS, &vcpu->sregs) < 0)
+ 		die_perror("KVM_GET_SREGS failed");
+ 
+-	vcpu->sregs.cs.selector	= vcpu->kvm->arch.boot_selector;
+-	vcpu->sregs.cs.base	= selector_to_base(vcpu->kvm->arch.boot_selector);
+-	vcpu->sregs.ss.selector	= vcpu->kvm->arch.boot_selector;
+-	vcpu->sregs.ss.base	= selector_to_base(vcpu->kvm->arch.boot_selector);
+-	vcpu->sregs.ds.selector	= vcpu->kvm->arch.boot_selector;
+-	vcpu->sregs.ds.base	= selector_to_base(vcpu->kvm->arch.boot_selector);
+-	vcpu->sregs.es.selector	= vcpu->kvm->arch.boot_selector;
+-	vcpu->sregs.es.base	= selector_to_base(vcpu->kvm->arch.boot_selector);
+-	vcpu->sregs.fs.selector	= vcpu->kvm->arch.boot_selector;
+-	vcpu->sregs.fs.base	= selector_to_base(vcpu->kvm->arch.boot_selector);
+-	vcpu->sregs.gs.selector	= vcpu->kvm->arch.boot_selector;
+-	vcpu->sregs.gs.base	= selector_to_base(vcpu->kvm->arch.boot_selector);
++	if (load_vmlinux) {
++		vcpu->sregs.cs.l	= 1;
++		vcpu->sregs.cr0		= 0x0000000080050033ULL;
++		vcpu->sregs.cr3		= 0x0000000000d87000ULL;
++		vcpu->sregs.cr4		= 0x0000000000000020ULL;
++		vcpu->sregs.efer	= 0x0000000000000500ULL;
++	} else {
++		vcpu->sregs.cs.selector	= vcpu->kvm->arch.boot_selector;
++		vcpu->sregs.cs.base	= selector_to_base(vcpu->kvm->arch.boot_selector);
++		vcpu->sregs.ss.selector	= vcpu->kvm->arch.boot_selector;
++		vcpu->sregs.ss.base	= selector_to_base(vcpu->kvm->arch.boot_selector);
++		vcpu->sregs.ds.selector	= vcpu->kvm->arch.boot_selector;
++		vcpu->sregs.ds.base	= selector_to_base(vcpu->kvm->arch.boot_selector);
++		vcpu->sregs.es.selector	= vcpu->kvm->arch.boot_selector;
++		vcpu->sregs.es.base	= selector_to_base(vcpu->kvm->arch.boot_selector);
++		vcpu->sregs.fs.selector	= vcpu->kvm->arch.boot_selector;
++		vcpu->sregs.fs.base	= selector_to_base(vcpu->kvm->arch.boot_selector);
++		vcpu->sregs.gs.selector	= vcpu->kvm->arch.boot_selector;
++		vcpu->sregs.gs.base	= selector_to_base(vcpu->kvm->arch.boot_selector);
++	}
+ 
+ 	if (ioctl(vcpu->vcpu_fd, KVM_SET_SREGS, &vcpu->sregs) < 0)
+ 		die_perror("KVM_SET_SREGS failed");
+diff --git a/x86/kvm.c b/x86/kvm.c
+index 328fa75..f146b08 100644
+--- a/x86/kvm.c
++++ b/x86/kvm.c
+@@ -22,6 +22,8 @@
+ #include <stdio.h>
+ #include <fcntl.h>
+ 
++bool load_vmlinux;
++
+ struct kvm_ext kvm_req_ext[] = {
+ 	{ DEFINE_KVM_EXT(KVM_CAP_COALESCED_MMIO) },
+ 	{ DEFINE_KVM_EXT(KVM_CAP_SET_TSS_ADDR) },
+@@ -218,21 +220,25 @@ static inline void *guest_real_to_host(struct kvm *kvm, u16 selector, u16 offset
+ 	return guest_flat_to_host(kvm, flat);
+ }
+ 
+-static bool load_flat_binary(struct kvm *kvm, int fd_kernel)
++static bool load_flat_binary(struct kvm *kvm, int fd_kernel, int fd_initrd)
+ {
+ 	void *p;
++	ssize_t file_size;
+ 
+ 	if (lseek(fd_kernel, 0, SEEK_SET) < 0)
+ 		die_perror("lseek");
+ 
+-	p = guest_real_to_host(kvm, BOOT_LOADER_SELECTOR, BOOT_LOADER_IP);
++	p = guest_flat_to_host(kvm, 0);
++	file_size = read_file(fd_initrd, p, kvm->cfg.ram_size);
++	if (file_size < 0)
++		die_perror("bootram read");
+ 
+-	if (read_file(fd_kernel, p, kvm->cfg.ram_size) < 0)
+-		die_perror("read");
++	p = guest_flat_to_host(kvm, 0x200000);
++	file_size = read_file(fd_kernel, p, kvm->cfg.ram_size - 0x200000);
++	if (file_size < 0)
++		die_perror("kernel read");
+ 
+-	kvm->arch.boot_selector	= BOOT_LOADER_SELECTOR;
+-	kvm->arch.boot_ip	= BOOT_LOADER_IP;
+-	kvm->arch.boot_sp	= BOOT_LOADER_SP;
++	load_vmlinux = true;
+ 
+ 	return true;
+ }
+@@ -357,7 +363,7 @@ bool kvm__arch_load_kernel_image(struct kvm *kvm, int fd_kernel, int fd_initrd,
+ 	if (fd_initrd != -1)
+ 		pr_warning("Loading initrd with flat binary not supported.");
+ 
+-	return load_flat_binary(kvm, fd_kernel);
++	return load_flat_binary(kvm, fd_kernel, fd_initrd);
+ }
+ 
+ /**
