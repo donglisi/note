@@ -65,15 +65,18 @@ index b02ff65..32a241f 100644
  	vcpu->is_running = true;
  
 diff --git a/x86/kvm.c b/x86/kvm.c
-index 328fa75..2579a19 100644
+index 328fa75..83a5571 100644
 --- a/x86/kvm.c
 +++ b/x86/kvm.c
-@@ -170,11 +170,15 @@ void kvm__arch_init(struct kvm *kvm)
+@@ -170,11 +170,18 @@ void kvm__arch_init(struct kvm *kvm)
  	if (kvm->ram_start == MAP_FAILED)
  		die("out of memory");
  
 +	printf("kvm->ram_start %llu\n", (long long unsigned int)kvm->ram_start);
-+	memset(kvm->ram_start, 0, 1024 * 1024 * 32);
++	if (ram_size > 1024 * 1024 * 32)
++		memset(kvm->ram_start, 0, 1024 * 1024 * 32);
++	else
++		memset(kvm->ram_start, 0, ram_size);
  	madvise(kvm->ram_start, kvm->ram_size, MADV_MERGEABLE);
  
 -	ret = ioctl(kvm->vm_fd, KVM_CREATE_IRQCHIP);
