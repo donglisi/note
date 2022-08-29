@@ -5,3 +5,5 @@ sudo dd if=/proc/$(pgrep lkvm)/mem iflag=skip_bytes,count_bytes skip=$((14016699
 
 objcopy -O binary -j .text a.out a.bin
 objdump -b binary -D -Matt,x86-64 -m i386 a.bin
+
+dd if=/dev/zero iflag=skip_bytes,count_bytes oflag=seek_bytes of=~/test/mem.bin seek=1048576 count=13018208 conv=notrunc
