@@ -1,57 +1,39 @@
 diff --git a/builtin-run.c b/builtin-run.c
-index bb7e6e8..7c7e9a2 100644
+index bb7e6e8..8bf8e75 100644
 --- a/builtin-run.c
 +++ b/builtin-run.c
-@@ -706,17 +706,7 @@ static struct kvm *kvm_cmd_run_init(int argc, const char **argv)
- 	else
- 		pr_warning("No console!");
+@@ -712,6 +712,7 @@ static struct kvm *kvm_cmd_run_init(int argc, const char **argv)
+ 	if (!kvm->cfg.guest_ip)
+ 		kvm->cfg.guest_ip = DEFAULT_GUEST_ADDR;
  
--	if (!kvm->cfg.host_ip)
--		kvm->cfg.host_ip = DEFAULT_HOST_ADDR;
--
--	if (!kvm->cfg.guest_ip)
--		kvm->cfg.guest_ip = DEFAULT_GUEST_ADDR;
--
--	if (!kvm->cfg.guest_mac)
--		kvm->cfg.guest_mac = DEFAULT_GUEST_MAC;
--
--	if (!kvm->cfg.host_mac)
--		kvm->cfg.host_mac = DEFAULT_HOST_MAC;
 +	kvm->cfg.guest_mac = mac_addr_guest;
+ 	if (!kvm->cfg.guest_mac)
+ 		kvm->cfg.guest_mac = DEFAULT_GUEST_MAC;
  
- 	if (!kvm->cfg.script)
- 		kvm->cfg.script = DEFAULT_SCRIPT;
 diff --git a/include/kvm/kvm-config.h b/include/kvm/kvm-config.h
-index 368e6c7..b9c5a17 100644
+index 368e6c7..f556c83 100644
 --- a/include/kvm/kvm-config.h
 +++ b/include/kvm/kvm-config.h
-@@ -10,12 +10,10 @@
- #define DEFAULT_KVM_DEV		"/dev/kvm"
- #define DEFAULT_CONSOLE		"serial"
- #define DEFAULT_NETWORK		"user"
--#define DEFAULT_HOST_ADDR	"192.168.33.1"
--#define DEFAULT_GUEST_ADDR	"192.168.33.15"
--#define DEFAULT_GUEST_MAC	"02:15:15:15:15:15"
--#define DEFAULT_HOST_MAC	"02:01:01:01:01:01"
+@@ -14,11 +14,13 @@
+ #define DEFAULT_GUEST_ADDR	"192.168.33.15"
+ #define DEFAULT_GUEST_MAC	"02:15:15:15:15:15"
+ #define DEFAULT_HOST_MAC	"02:01:01:01:01:01"
 -#define DEFAULT_SCRIPT		"none"
++#define DEFAULT_SCRIPT		"/etc/qemu-ifup"
  #define DEFAULT_SANDBOX_FILENAME "guest/sandbox.sh"
-+#define DEFAULT_SCRIPT "/etc/qemu-ifup"
-+
-+extern char mac_addr_guest[];
  
  #define MIN_RAM_SIZE		SZ_64M
  
++extern char mac_addr_guest[];
++
+ struct kvm_config {
+ 	struct kvm_config_arch arch;
+ 	struct disk_image_params disk_image[MAX_DISK_IMAGES];
 diff --git a/main.c b/main.c
-index 05bc82c..dc5f97d 100644
+index 05bc82c..f5888ed 100644
 --- a/main.c
 +++ b/main.c
-@@ -1,4 +1,5 @@
- #include "kvm/kvm.h"
-+#include "kvm/kvm-config.h"
- 
- #include <stdlib.h>
- #include <stdio.h>
-@@ -11,8 +12,23 @@ static int handle_kvm_command(int argc, char **argv)
+@@ -11,8 +11,23 @@ static int handle_kvm_command(int argc, char **argv)
  	return handle_command(kvm_commands, argc, (const char **) &argv[0]);
  }
  
@@ -76,21 +58,13 @@ index 05bc82c..dc5f97d 100644
  
  	return handle_kvm_command(argc - 1, &argv[1]);
 diff --git a/virtio/net.c b/virtio/net.c
-index c4e302b..e7f2873 100644
+index c4e302b..739e8db 100644
 --- a/virtio/net.c
 +++ b/virtio/net.c
-@@ -891,14 +891,12 @@ int netdev_parser(const struct option *opt, const char *arg, int unset)
- 	}
- 
- 	p = (struct virtio_net_params) {
--		.guest_ip	= DEFAULT_GUEST_ADDR,
--		.host_ip	= DEFAULT_HOST_ADDR,
- 		.script		= DEFAULT_SCRIPT,
- 		.downscript	= DEFAULT_SCRIPT,
- 		.mode		= NET_MODE_TAP,
+@@ -899,6 +899,7 @@ int netdev_parser(const struct option *opt, const char *arg, int unset)
  	};
  
--	str_to_mac(DEFAULT_GUEST_MAC, p.guest_mac);
+ 	str_to_mac(DEFAULT_GUEST_MAC, p.guest_mac);
 +	str_to_mac(mac_addr_guest, p.guest_mac);
  	p.guest_mac[5] += kvm->cfg.num_net_devices;
  
