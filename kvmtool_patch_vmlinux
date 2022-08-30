@@ -1,19 +1,17 @@
 diff --git a/include/kvm/kvm-config.h b/include/kvm/kvm-config.h
-index 368e6c7..fcf5a54 100644
+index 368e6c7..95c5863 100644
 --- a/include/kvm/kvm-config.h
 +++ b/include/kvm/kvm-config.h
-@@ -19,6 +19,11 @@
- 
- #define MIN_RAM_SIZE		SZ_64M
+@@ -67,4 +67,9 @@ struct kvm_config {
+ 	bool virtio_legacy;
+ };
  
 +#define ZEROPAGE_OFFSET		0x1000
 +
 +extern bool load_vmlinux;
 +extern uint64_t cr3;
 +
- struct kvm_config {
- 	struct kvm_config_arch arch;
- 	struct disk_image_params disk_image[MAX_DISK_IMAGES];
+ #endif
 diff --git a/kvm.c b/kvm.c
 index 42b8812..6e8b3db 100644
 --- a/kvm.c
