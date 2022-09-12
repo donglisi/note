@@ -141,7 +141,7 @@ index b02ff65..b6413c7 100644
  	if (ioctl(vcpu->vcpu_fd, KVM_SET_SREGS, &vcpu->sregs) < 0)
  		die_perror("KVM_SET_SREGS failed");
 diff --git a/x86/kvm.c b/x86/kvm.c
-index 328fa75..af4abbb 100644
+index 328fa75..8ba9f6a 100644
 --- a/x86/kvm.c
 +++ b/x86/kvm.c
 @@ -6,6 +6,7 @@
@@ -157,7 +157,7 @@ index 328fa75..af4abbb 100644
  #include <fcntl.h>
  
 +bool load_vmlinux;
-+uint64_t cr3;
++uint64_t cr3 = 16752640;
 +
  struct kvm_ext kvm_req_ext[] = {
  	{ DEFINE_KVM_EXT(KVM_CAP_COALESCED_MMIO) },
@@ -175,13 +175,14 @@ index 328fa75..af4abbb 100644
  static inline void *guest_real_to_host(struct kvm *kvm, u16 selector, u16 offset)
  {
  	unsigned long flat = ((u32)selector << 4) + offset;
-@@ -218,21 +224,56 @@ static inline void *guest_real_to_host(struct kvm *kvm, u16 selector, u16 offset
+@@ -218,21 +224,66 @@ static inline void *guest_real_to_host(struct kvm *kvm, u16 selector, u16 offset
  	return guest_flat_to_host(kvm, flat);
  }
  
 -static bool load_flat_binary(struct kvm *kvm, int fd_kernel)
 +static void boot_params_set_e820(struct kvm *kvm, struct boot_params *boot)
-+{
+ {
+-	void *p;
 +	struct e820map *e820 = guest_flat_to_host(kvm, E820_MAP_START);
 +	struct e820entry *mem_map = e820->map;
 +	unsigned int i;
@@ -193,33 +194,47 @@ index 328fa75..af4abbb 100644
 +		boot->e820_table[i].type = mem_map[i].type;
 +	}
 +}
-+
-+static void set_boot_page_table(struct kvm *kvm)
-+{
-+}
-+
-+static bool load_flat_binary(struct kvm *kvm, int fd_kernel, int fd_initrd, const char *kernel_cmdline)
- {
- 	void *p;
-+	ssize_t file_size;
-+	struct boot_params *boot = guest_flat_to_host(kvm, ZEROPAGE_OFFSET);
-+	size_t cmdline_size;
  
 -	if (lseek(fd_kernel, 0, SEEK_SET) < 0)
-+	cr3 = 0x1068000;
-+	if (lseek(fd_initrd, cr3, SEEK_SET) < 0)
- 		die_perror("lseek");
-+	p = guest_flat_to_host(kvm, cr3);
-+	file_size = read_file(fd_initrd, p, kvm->cfg.ram_size - cr3);
-+	if (file_size < 0)
-+		die_perror("pagetable read");
+-		die_perror("lseek");
++static void set_boot_page_table(struct kvm *kvm)
++{
++	unsigned int i;
++	unsigned int *addr;
  
 -	p = guest_real_to_host(kvm, BOOT_LOADER_SELECTOR, BOOT_LOADER_IP);
-+	boot_params_set_e820(kvm, boot);
-+	set_boot_page_table(kvm);
++	/* Build Level 4 */
++	addr = guest_flat_to_host(kvm, cr3);
++	*addr = cr3 + 0x1007;
++
++	/* Build Level 3 */
++	for (i = 0; i < 4; i++) {
++		addr = guest_flat_to_host(kvm, cr3 + 0x1000 + i * 8);
++		*addr = cr3 + 0x2007 + i * 0x1000;
++	}
  
 -	if (read_file(fd_kernel, p, kvm->cfg.ram_size) < 0)
 -		die_perror("read");
++	/* Build Level 2 */
++	for (i = 0; i < 2048; i++) {
++		addr = guest_flat_to_host(kvm, cr3 + 0x2000 + i * 8);
++		*addr = 0x183 + 0x200000 * i;
++	}
++}
+ 
+-	kvm->arch.boot_selector	= BOOT_LOADER_SELECTOR;
+-	kvm->arch.boot_ip	= BOOT_LOADER_IP;
+-	kvm->arch.boot_sp	= BOOT_LOADER_SP;
++static bool load_flat_binary(struct kvm *kvm, int fd_kernel, const char *kernel_cmdline)
++{
++	void *p;
++	ssize_t file_size;
++	struct boot_params *boot = guest_flat_to_host(kvm, ZEROPAGE_OFFSET);
++	size_t cmdline_size;
++
++	boot_params_set_e820(kvm, boot);
++	set_boot_page_table(kvm);
++
 +	p = guest_flat_to_host(kvm, BOOT_CMDLINE_OFFSET);
 +	cmdline_size = strlen(kernel_cmdline) + 1;
 +	if (cmdline_size > COMMAND_LINE_SIZE - 1)
@@ -227,10 +242,7 @@ index 328fa75..af4abbb 100644
 +	memset(p, 0, boot->hdr.cmdline_size);
 +	memcpy(p, kernel_cmdline, cmdline_size - 1);
 +	boot->hdr.cmd_line_ptr = BOOT_CMDLINE_OFFSET;
- 
--	kvm->arch.boot_selector	= BOOT_LOADER_SELECTOR;
--	kvm->arch.boot_ip	= BOOT_LOADER_IP;
--	kvm->arch.boot_sp	= BOOT_LOADER_SP;
++
 +	if (lseek(fd_kernel, 0, SEEK_SET) < 0)
 +		die_perror("lseek");
 +	p = guest_flat_to_host(kvm, VMLINUX_KERNEL_START);
@@ -240,13 +252,13 @@ index 328fa75..af4abbb 100644
  
  	return true;
  }
-@@ -357,7 +398,8 @@ bool kvm__arch_load_kernel_image(struct kvm *kvm, int fd_kernel, int fd_initrd,
+@@ -357,7 +408,8 @@ bool kvm__arch_load_kernel_image(struct kvm *kvm, int fd_kernel, int fd_initrd,
  	if (fd_initrd != -1)
  		pr_warning("Loading initrd with flat binary not supported.");
  
 -	return load_flat_binary(kvm, fd_kernel);
 +	load_vmlinux = true;
-+	return load_flat_binary(kvm, fd_kernel, fd_initrd, kernel_cmdline);
++	return load_flat_binary(kvm, fd_kernel, kernel_cmdline);
  }
  
  /**
