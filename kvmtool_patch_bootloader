@@ -141,7 +141,7 @@ index b02ff65..b6413c7 100644
  	if (ioctl(vcpu->vcpu_fd, KVM_SET_SREGS, &vcpu->sregs) < 0)
  		die_perror("KVM_SET_SREGS failed");
 diff --git a/x86/kvm.c b/x86/kvm.c
-index 328fa75..323a9ee 100644
+index 328fa75..1c556f9 100644
 --- a/x86/kvm.c
 +++ b/x86/kvm.c
 @@ -6,6 +6,7 @@
@@ -157,7 +157,7 @@ index 328fa75..323a9ee 100644
  #include <fcntl.h>
  
 +bool load_vmlinux;
-+uint64_t cr3 = 16752640;
++uint64_t cr3 = 0xffa000;
 +
  struct kvm_ext kvm_req_ext[] = {
  	{ DEFINE_KVM_EXT(KVM_CAP_COALESCED_MMIO) },
