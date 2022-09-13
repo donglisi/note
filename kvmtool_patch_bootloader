@@ -141,7 +141,7 @@ index b02ff65..b6413c7 100644
  	if (ioctl(vcpu->vcpu_fd, KVM_SET_SREGS, &vcpu->sregs) < 0)
  		die_perror("KVM_SET_SREGS failed");
 diff --git a/x86/kvm.c b/x86/kvm.c
-index 328fa75..8ba9f6a 100644
+index 328fa75..323a9ee 100644
 --- a/x86/kvm.c
 +++ b/x86/kvm.c
 @@ -6,6 +6,7 @@
@@ -162,7 +162,7 @@ index 328fa75..8ba9f6a 100644
  struct kvm_ext kvm_req_ext[] = {
  	{ DEFINE_KVM_EXT(KVM_CAP_COALESCED_MMIO) },
  	{ DEFINE_KVM_EXT(KVM_CAP_SET_TSS_ADDR) },
-@@ -207,10 +211,12 @@ void kvm__irq_trigger(struct kvm *kvm, int irq)
+@@ -207,6 +211,7 @@ void kvm__irq_trigger(struct kvm *kvm, int irq)
  #define BOOT_LOADER_IP		0x0000
  #define BOOT_LOADER_SP		0x8000
  #define BOOT_CMDLINE_OFFSET	0x20000
@@ -170,12 +170,7 @@ index 328fa75..8ba9f6a 100644
  
  #define BOOT_PROTOCOL_REQUIRED	0x206
  #define LOAD_HIGH		0x01
- 
-+
- static inline void *guest_real_to_host(struct kvm *kvm, u16 selector, u16 offset)
- {
- 	unsigned long flat = ((u32)selector << 4) + offset;
-@@ -218,21 +224,66 @@ static inline void *guest_real_to_host(struct kvm *kvm, u16 selector, u16 offset
+@@ -218,21 +223,66 @@ static inline void *guest_real_to_host(struct kvm *kvm, u16 selector, u16 offset
  	return guest_flat_to_host(kvm, flat);
  }
  
@@ -212,29 +207,29 @@ index 328fa75..8ba9f6a 100644
 +		addr = guest_flat_to_host(kvm, cr3 + 0x1000 + i * 8);
 +		*addr = cr3 + 0x2007 + i * 0x1000;
 +	}
- 
--	if (read_file(fd_kernel, p, kvm->cfg.ram_size) < 0)
--		die_perror("read");
++
 +	/* Build Level 2 */
 +	for (i = 0; i < 2048; i++) {
 +		addr = guest_flat_to_host(kvm, cr3 + 0x2000 + i * 8);
 +		*addr = 0x183 + 0x200000 * i;
 +	}
 +}
- 
--	kvm->arch.boot_selector	= BOOT_LOADER_SELECTOR;
--	kvm->arch.boot_ip	= BOOT_LOADER_IP;
--	kvm->arch.boot_sp	= BOOT_LOADER_SP;
++
 +static bool load_flat_binary(struct kvm *kvm, int fd_kernel, const char *kernel_cmdline)
 +{
 +	void *p;
 +	ssize_t file_size;
 +	struct boot_params *boot = guest_flat_to_host(kvm, ZEROPAGE_OFFSET);
 +	size_t cmdline_size;
-+
+ 
+-	if (read_file(fd_kernel, p, kvm->cfg.ram_size) < 0)
+-		die_perror("read");
 +	boot_params_set_e820(kvm, boot);
 +	set_boot_page_table(kvm);
-+
+ 
+-	kvm->arch.boot_selector	= BOOT_LOADER_SELECTOR;
+-	kvm->arch.boot_ip	= BOOT_LOADER_IP;
+-	kvm->arch.boot_sp	= BOOT_LOADER_SP;
 +	p = guest_flat_to_host(kvm, BOOT_CMDLINE_OFFSET);
 +	cmdline_size = strlen(kernel_cmdline) + 1;
 +	if (cmdline_size > COMMAND_LINE_SIZE - 1)
@@ -252,7 +247,7 @@ index 328fa75..8ba9f6a 100644
  
  	return true;
  }
-@@ -357,7 +408,8 @@ bool kvm__arch_load_kernel_image(struct kvm *kvm, int fd_kernel, int fd_initrd,
+@@ -357,7 +407,8 @@ bool kvm__arch_load_kernel_image(struct kvm *kvm, int fd_kernel, int fd_initrd,
  	if (fd_initrd != -1)
  		pr_warning("Loading initrd with flat binary not supported.");
  
