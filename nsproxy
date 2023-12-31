@@ -1,0 +1,18 @@
+#!/bin/bash
+
+name=proxy
+eth=eth0
+
+ip netns add $name
+ip netns exec $name ip link set lo up
+
+ip link add $eth type veth peer name veth1 netns $name
+ip link set $eth master eth-br
+ip link set $eth up
+
+ip netns exec $name ip link set veth1 up
+ip netns exec $name ip addr add 192.168.1.74/24 dev veth1
+ip netns exec $name ip route add default via 192.168.1.1
+
+mkdir -p /etc/netns/$name/
+echo nameserver 223.5.5.5 > /etc/netns/$name/resolv.conf
