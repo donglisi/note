@@ -1,4 +1,0 @@
-#!/bin/bash
-
-pids=($(pgrep qemu-system-))
-kill -s 9 ${pids[$1]} 
