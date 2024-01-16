@@ -8,7 +8,7 @@ echo nameserver 8.8.8.8 > /etc/netns/$name/resolv.conf
 
 ip netns add $name
 ip netns exec $name ip link set lo up
-ip netns exec $name echo 1 > /proc/sys/net/ipv4/ip_forward
+ip netns exec $name sh -c 'echo 1 > /proc/sys/net/ipv4/ip_forward'
 
 ip link add $veth type veth peer name veth1 netns $name
 ip link set $veth master eth-br
@@ -23,4 +23,4 @@ ip netns exec $name ip link set tun0 up
 ip netns exec $name ip route add default via 198.18.0.1 dev tun0 metric 1
 ip netns exec $name iptables -t nat -A POSTROUTING -o tun0 -j MASQUERADE
 
-ip netns exec $name nohup tun2socks -device tun0 -proxy socks5://192.168.1.254:1080 -interface veth1 > /var/log/route-tun2socks.log &
+ip netns exec $name nohup tun2socks-linux-amd64-v3 -device tun0 -proxy socks5://192.168.1.2:10808 -interface veth1 > /var/log/route-tun2socks.log &
