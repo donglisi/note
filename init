@@ -18,13 +18,31 @@ cat <<!
 Boot took $(cut -d' ' -f1 /proc/uptime) seconds
 !
 
+serial=$(grep -E -o "\bconsole=\w+" /proc/cmdline | grep -E -o "ttyS0|hvc0|ttyAMA0|ttySAC0" | tail -n 1)
+root=$(grep -oE "root=/dev/\w+" /proc/cmdline | tail -n 1 | cut -d "=" -f 2)
+init=$(grep -oE "init=(\w|/)+" /proc/cmdline | tail -n 1 | cut -d "=" -f 2)
+
+if [ ! "$root" = "" ] ; then
+	if [ "$init" = "" ] ; then
+		init=/sbin/init
+	fi
+
+	rootmnt=/mnt
+	mkdir $rootmnt
+	mount $root $rootmnt
+	mount -n -o move /dev ${rootmnt}/dev
+	mount -n -o move /sys ${rootmnt}/sys
+	mount -n -o move /proc ${rootmnt}/proc
+	mount -n -o move /run ${rootmnt}/run
+	mount -n -o move /tmp ${rootmnt}/tmp
+	exec switch_root -c /dev/console ${rootmnt} $init
+fi
+
 if [ -f /usr/sbin/sshd ]; then
 	/usr/sbin/sshd
 else
 	telnetd -l /bin/login_
 fi
-
-serial=$(grep -E -o "\bconsole=\w+" /proc/cmdline | grep -E -o "ttyS0|hvc0|ttyAMA0" | tail -n 1)
 
 while :
 do
