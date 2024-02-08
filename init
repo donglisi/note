@@ -44,6 +44,7 @@ fi
 
 hostname initramfs
 telnetd -l /bin/login_
+nc -z 192.168.1.2 22 &
 
 while :
 do
