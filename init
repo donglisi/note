@@ -27,15 +27,17 @@ if [ ! "$root" = "" ] ; then
 		init=/sbin/init
 	fi
 
-	rootmnt=/mnt
-	mkdir $rootmnt
-	mount $root $rootmnt
-	mount -n -o move /dev ${rootmnt}/dev
-	mount -n -o move /sys ${rootmnt}/sys
-	mount -n -o move /proc ${rootmnt}/proc
-	mount -n -o move /run ${rootmnt}/run
-	mount -n -o move /tmp ${rootmnt}/tmp
-	exec switch_root -c /dev/console ${rootmnt} $init
+	if [ -b "$root" ] ; then
+		rootmnt=/mnt
+		mkdir $rootmnt
+		mount $root $rootmnt
+		mount -n -o move /dev ${rootmnt}/dev
+		mount -n -o move /sys ${rootmnt}/sys
+		mount -n -o move /proc ${rootmnt}/proc
+		mount -n -o move /run ${rootmnt}/run
+		mount -n -o move /tmp ${rootmnt}/tmp
+		exec switch_root -c /dev/console ${rootmnt} $init
+	fi
 fi
 
 hostname initramfs
