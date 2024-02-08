@@ -1,0 +1,36 @@
+#!/bin/sh
+
+mount -t devtmpfs none /dev
+mkdir /dev/pts
+mount -t devpts devpts /dev/pts
+
+ln -s /proc/self/fd /dev/fd
+ln -s /proc/self/fd/0 /dev/stdin
+ln -s /proc/self/fd/1 /dev/stdout
+ln -s /proc/self/fd/2 /dev/stderr
+
+mount -t proc none /proc
+mount -t sysfs none /sys
+mount -t tmpfs none /run
+mount -t tmpfs none /tmp
+
+cat <<!
+Boot took $(cut -d' ' -f1 /proc/uptime) seconds
+!
+
+if [ -f /usr/sbin/sshd ]; then
+	/usr/sbin/sshd
+else
+	telnetd -l /bin/login_
+fi
+
+serial=$(grep -E -o "\bconsole=\w+" /proc/cmdline | grep -E -o "ttyS0|hvc0|ttyAMA0" | tail -n 1)
+
+while :
+do
+	if [ -f /usr/sbin/agetty ]; then
+		/usr/sbin/agetty -a root $serial
+	else
+        	/sbin/getty -n -l /bin/login_ 115200 /dev/$serial
+	fi
+done
