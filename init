@@ -38,17 +38,10 @@ if [ ! "$root" = "" ] ; then
 	exec switch_root -c /dev/console ${rootmnt} $init
 fi
 
-if [ -f /usr/sbin/sshd ]; then
-	/usr/sbin/sshd
-else
-	telnetd -l /bin/login_
-fi
+hostname=initramfs
+telnetd -l /bin/login_
 
 while :
 do
-	if [ -f /usr/sbin/agetty ]; then
-		/usr/sbin/agetty -a root $serial
-	else
-        	/sbin/getty -n -l /bin/login_ 115200 /dev/$serial
-	fi
+	/sbin/getty -n -l /bin/login_ 115200 /dev/$serial
 done
