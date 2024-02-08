@@ -1,7 +1,5 @@
 #!/bin/sh
 
-set -e
-
 mount -t devtmpfs none /dev
 mkdir /dev/pts
 mount -t devpts devpts /dev/pts
@@ -24,22 +22,21 @@ serial=$(grep -E -o "\bconsole=\w+" /proc/cmdline | grep -E -o "ttyS0|hvc0|ttyAM
 root=$(grep -oE "root=/dev/\w+" /proc/cmdline | tail -n 1 | cut -d "=" -f 2)
 init=$(grep -oE "init=(\w|/)+" /proc/cmdline | tail -n 1 | cut -d "=" -f 2)
 
-if [ ! "$root" = "" ] ; then
+if [ -b "$root" ] ; then
+	set -e
+
 	if [ "$init" = "" ] ; then
 		init=/sbin/init
 	fi
 
-	if [ -b "$root" ] ; then
-		rootmnt=/mnt
-		mkdir $rootmnt
-		mount $root $rootmnt
-		mount -n -o move /dev ${rootmnt}/dev
-		mount -n -o move /sys ${rootmnt}/sys
-		mount -n -o move /proc ${rootmnt}/proc
-		mount -n -o move /run ${rootmnt}/run
-		mount -n -o move /tmp ${rootmnt}/tmp
-		exec switch_root -c /dev/console ${rootmnt} $init
-	fi
+	rootmnt=/mnt
+	mount $root $rootmnt
+	mount -n -o move /dev ${rootmnt}/dev
+	mount -n -o move /sys ${rootmnt}/sys
+	mount -n -o move /proc ${rootmnt}/proc
+	mount -n -o move /run ${rootmnt}/run
+	mount -n -o move /tmp ${rootmnt}/tmp
+	exec switch_root -c /dev/console ${rootmnt} $init
 fi
 
 hostname initramfs
