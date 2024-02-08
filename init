@@ -38,7 +38,7 @@ if [ ! "$root" = "" ] ; then
 	exec switch_root -c /dev/console ${rootmnt} $init
 fi
 
-hostname=initramfs
+hostname initramfs
 telnetd -l /bin/login_
 
 while :
