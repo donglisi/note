@@ -1,0 +1,7 @@
+#!/bin/bpftrace
+#include <linux/vfio_pci_core.h>
+
+kprobe:vfio_pci_core_read,kprobe:vfio_pci_core_write
+{
+	printf("%s,\tbar=%lld,\toffset=0x%llx,\tcount=0x%lx\n", func, *arg3 >> VFIO_PCI_OFFSET_SHIFT, *arg3 & ((1 << VFIO_PCI_OFFSET_SHIFT) - 1), arg2);
+}
