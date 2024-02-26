@@ -1,7 +1,17 @@
 #!/bin/bpftrace
 #include <linux/vfio_pci_core.h>
 
-kprobe:vfio_pci_core_read,kprobe:vfio_pci_core_write
+kprobe:vfio_pci_rw
 {
-	printf("%s,\tbar=%lld,\toffset=0x%llx,\tcount=0x%lx\n", func, *arg3 >> VFIO_PCI_OFFSET_SHIFT, *arg3 & ((1 << VFIO_PCI_OFFSET_SHIFT) - 1), arg2);
+	$bar = *arg3 >> VFIO_PCI_OFFSET_SHIFT;
+	$offset = *arg3 & ((1 << VFIO_PCI_OFFSET_SHIFT) - 1);
+	$pdev = (struct pci_dev *)(((struct vfio_pci_core_device *)arg0)->pdev);
+
+	if (arg4 == true) {
+		$rw = "write";
+	} else {
+		$rw = "read";
+	}
+
+	printf("%s\t%s,\t%s\tbar=%lld,\toffset=0x%llx,\tcount=0x%lx\n", str($pdev->dev.kobj.name), func, $rw, $bar, $offset, arg2);
 }
