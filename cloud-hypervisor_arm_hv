@@ -44,3 +44,9 @@ index aa3589f6..ac4c1084 100644
          if vm
              .as_any()
              .downcast_ref::<hypervisor::kvm::KvmVm>()
+
+/*
+d@macmini-m2:~$ diff .cargo/git/checkouts/kvm-bindings-c6b55506be61a061/2dcf85d/src/arm64/bindings.rs cargo/git/checkouts/kvm-bindings-c6b55506be61a061/2dcf85d/src/arm64/bindings.rs
+252a253
+> pub const KVM_ARM_VCPU_HAS_EL2: u32 = 7;
+*/
